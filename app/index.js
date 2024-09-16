@@ -32,16 +32,32 @@ function connectToDatabase() {
 }
 
 function startServer(connection) {
-    app.get('/query', (req, res) => {
+    app.get('/heavy-query', (req, res) => {
         const start = Date.now();
-        connection.query('SELECT SLEEP(1)', (error, results) => {
+
+        const sqlQuery = `
+            SELECT t1.id, t1.data, COUNT(t2.id) AS join_count, AVG(t2.id) AS avg_id
+            FROM large_table t1
+            LEFT JOIN another_table t2 ON t1.id = t2.foreign_id
+            WHERE t1.id > 56
+            GROUP BY t1.id
+            HAVING join_count > 10
+            ORDER BY t1.created_at DESC
+            LIMIT 1000;
+        `;
+
+        connection.query(sqlQuery, (error, results) => {
             if (error) {
-                console.error('Request error:', error);
+                console.error('Error during query:', error);
                 res.status(500).send('Database error');
                 return;
             }
+
             const duration = Date.now() - start;
-            res.send(`Request completed in ${duration} ms`);
+            res.send({
+                message: `Query completed in ${duration} ms`,
+                results: results
+            });
         });
     });
 
